@@ -5,7 +5,7 @@
  * `validate` runs once at boot, so a missing key fails the process immediately
  * instead of failing on the first upload.
  */
-export type SttProviderName = 'openai' | 'mock';
+export type SttProviderName = 'openai' | 'minimax' | 'mock';
 
 export interface AppConfig {
   port: number;
@@ -18,6 +18,13 @@ export interface AppConfig {
       model: string;
       timeoutMs: number;
     };
+    minimax: {
+      apiKey: string | null;
+      baseUrl: string;
+      model: string;
+      timeoutMs: number;
+      ffmpegPath: string;
+    };
     maxUploadBytes: number;
   };
 }
@@ -27,6 +34,10 @@ const DEFAULTS = {
   openaiBaseUrl: 'https://api.openai.com/v1',
   openaiModel: 'whisper-1',
   openaiTimeoutMs: 120_000,
+  minimaxBaseUrl: 'https://api.minimax.io/v1',
+  minimaxModel: 'asr-1.0',
+  minimaxTimeoutMs: 120_000,
+  minimaxFfmpegPath: 'ffmpeg',
   maxUploadBytes: 25 * 1024 * 1024,
   /**
    * The Vite dev server answers on both hostnames, and the browser sends the
@@ -57,8 +68,10 @@ function readOrigins(value: string | undefined): string[] {
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   const provider = (env.STT_PROVIDER ?? 'openai').trim().toLowerCase();
 
-  if (provider !== 'openai' && provider !== 'mock') {
-    throw new Error(`STT_PROVIDER must be "openai" or "mock", received "${provider}".`);
+  if (provider !== 'openai' && provider !== 'minimax' && provider !== 'mock') {
+    throw new Error(
+      `STT_PROVIDER must be "openai", "minimax" or "mock", received "${provider}".`,
+    );
   }
 
   const apiKey = env.OPENAI_API_KEY?.trim() || null;
@@ -66,6 +79,15 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   if (provider === 'openai' && !apiKey) {
     throw new Error(
       'OPENAI_API_KEY is required when STT_PROVIDER is "openai". ' +
+        'Set it in the environment or use STT_PROVIDER=mock for local development.',
+    );
+  }
+
+  const minimaxApiKey = env.MINIMAX_API_KEY?.trim() || null;
+
+  if (provider === 'minimax' && !minimaxApiKey) {
+    throw new Error(
+      'MINIMAX_API_KEY is required when STT_PROVIDER is "minimax". ' +
         'Set it in the environment or use STT_PROVIDER=mock for local development.',
     );
   }
@@ -80,6 +102,13 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
         baseUrl: (env.OPENAI_BASE_URL ?? DEFAULTS.openaiBaseUrl).replace(/\/+$/, ''),
         model: env.OPENAI_TRANSCRIBE_MODEL ?? DEFAULTS.openaiModel,
         timeoutMs: readPositiveInt(env.OPENAI_TIMEOUT_MS, DEFAULTS.openaiTimeoutMs),
+      },
+      minimax: {
+        apiKey: minimaxApiKey,
+        baseUrl: (env.MINIMAX_BASE_URL ?? DEFAULTS.minimaxBaseUrl).replace(/\/+$/, ''),
+        model: env.MINIMAX_TRANSCRIBE_MODEL ?? DEFAULTS.minimaxModel,
+        timeoutMs: readPositiveInt(env.MINIMAX_TIMEOUT_MS, DEFAULTS.minimaxTimeoutMs),
+        ffmpegPath: env.MINIMAX_FFMPEG_PATH?.trim() || DEFAULTS.minimaxFfmpegPath,
       },
       maxUploadBytes: readPositiveInt(env.MAX_UPLOAD_BYTES, DEFAULTS.maxUploadBytes),
     },

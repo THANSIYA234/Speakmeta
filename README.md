@@ -97,7 +97,8 @@ server/
 │     ├─ transcription.controller.ts # POST /api/transcription
 │     ├─ transcription.service.ts    # Validation rules + provider call
 │     ├─ audio-validation.ts         # Allowed types, size limit, container sniffing
-│     └─ providers/                  # OpenAI and mock providers
+│     ├─ audio-transcode.ts          # Converts uploads the provider does not accept
+│     └─ providers/                  # OpenAI, MiniMax and mock providers
 └─ .env.example              # Backend configuration template
 ```
 

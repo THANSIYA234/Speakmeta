@@ -5,6 +5,7 @@ import { memoryStorage } from 'multer';
 
 import { TranscriptionController } from './transcription.controller';
 import { TranscriptionService } from './transcription.service';
+import { MiniMaxProvider } from './providers/minimax.provider';
 import { MockProvider } from './providers/mock.provider';
 import { OpenAiProvider } from './providers/openai.provider';
 import type { SpeechToTextProvider } from './providers/speech-to-text.provider';
@@ -50,17 +51,42 @@ import type { SpeechToTextProvider } from './providers/speech-to-text.provider';
       },
     },
     {
+      provide: MiniMaxProvider,
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => {
+        const minimax = config.get<{
+          apiKey: string | null;
+          baseUrl: string;
+          model: string;
+          timeoutMs: number;
+          ffmpegPath: string;
+        }>('stt.minimax');
+
+        return new MiniMaxProvider({
+          apiKey: minimax?.apiKey ?? '',
+          baseUrl: minimax?.baseUrl ?? 'https://api.minimax.io/v1',
+          model: minimax?.model ?? 'asr-1.0',
+          timeoutMs: minimax?.timeoutMs ?? 120_000,
+          ffmpegPath: minimax?.ffmpegPath ?? 'ffmpeg',
+        });
+      },
+    },
+    {
       provide: 'SPEECH_TO_TEXT_PROVIDER',
-      inject: [ConfigService, MockProvider, OpenAiProvider],
+      inject: [ConfigService, MockProvider, OpenAiProvider, MiniMaxProvider],
       useFactory: (
         config: ConfigService,
         mock: MockProvider,
         openai: OpenAiProvider,
+        minimax: MiniMaxProvider,
       ): SpeechToTextProvider => {
         const provider = config.get<string>('stt.provider');
 
         if (provider === 'mock') {
           return mock;
+        }
+        if (provider === 'minimax') {
+          return minimax;
         }
         return openai;
       },
